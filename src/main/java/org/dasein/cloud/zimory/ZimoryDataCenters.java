@@ -22,6 +22,10 @@ import org.dasein.cloud.InternalException;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.dc.DataCenterServices;
 import org.dasein.cloud.dc.Region;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -96,36 +100,46 @@ public class ZimoryDataCenters implements DataCenterServices {
     @Override
     public Collection<Region> listRegions() throws InternalException, CloudException {
         ZimoryMethod method = new ZimoryMethod(provider);
-        JSONArray list = method.list("Zimory_Location/getDatacenters");
+        Document xml = method.getObject("constants/locations");
 
-        if( list == null ) {
-            throw new CloudException("No data was returned from endpoint");
+        if( xml == null ) {
+            logger.error("Unable to communicate with the Zimory locations endpoint");
+            throw new CloudException("Could not communicate with the Zimory locations endpoint");
         }
-
+        NodeList locations = xml.getElementsByTagName("location");
         ArrayList<Region> regions = new ArrayList<Region>();
 
-        for( int i=0; i<list.length(); i++ ) {
-            try {
-                Region r = toRegion(list.getJSONObject(i));
+        for( int i=0; i<locations.getLength(); i++ ) {
+            Node location = locations.item(i);
+
+            if( location.hasChildNodes() ) {
+                Region r = toRegion(location);
 
                 if( r != null ) {
                     regions.add(r);
                 }
             }
-            catch( JSONException e ) {
-                logger.error("Error parsing response from cloud: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
-            }
         }
+
         return regions;
     }
 
-    private @Nullable Region toRegion(@Nullable JSONObject json) throws CloudException, InternalException {
-        if( json == null ) {
+    private @Nullable Region toRegion(@Nullable Node xml) throws CloudException, InternalException {
+        if( xml == null ) {
             return null;
         }
-        if( !json.has("id") || !json.has("name") ) {
+
+        NodeList attributes = xml.getChildNodes();
+        String description = null;
+
+        for( int i=0; i<attributes.getLength(); i++ ) {
+            Node attribute = attributes.item(i);
+
+            if( attribute.getNodeName().equalsIgnoreCase("description") && attribute.hasChildNodes() ) {
+                description = attribute.getFirstChild().getNodeValue().trim();
+            }
+        }
+        if( description == null ) {
             return null;
         }
 
@@ -133,27 +147,14 @@ public class ZimoryDataCenters implements DataCenterServices {
 
         region.setActive(true);
         region.setAvailable(true);
-        region.setJurisdiction("US");
-
-        try {
-            region.setProviderRegionId(json.getString("name"));
-            if( json.has("longName") ) {
-                region.setName(json.getString("longName"));
-            }
-        }
-        catch( JSONException e ) {
-            logger.error("Error parsing JSON from cloud: " + e.getMessage());
-            e.printStackTrace();
-            throw new CloudException(e);
-        }
+        region.setJurisdiction("EU");
+        region.setName(description);
+        region.setProviderRegionId(description);
 
         if( region.getName() == null ) {
             region.setName(region.getProviderRegionId());
         }
-        if( region.getProviderRegionId().startsWith("sng") ) {
-            region.setJurisdiction("SG");
-        }
-        else if( region.getProviderRegionId().startsWith("ams") ) {
+        if( description.toLowerCase().startsWith("eu") ) {
             region.setJurisdiction("EU");
         }
         return region;

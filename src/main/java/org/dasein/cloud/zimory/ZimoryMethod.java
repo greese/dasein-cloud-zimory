@@ -282,41 +282,21 @@ public class ZimoryMethod {
         }
         String endpoint = ctx.getEndpoint();
 
-        if( endpoint == null || endpoint.trim().equals("") ) {
-            endpoint = "https://api.zimory.com";
+        if( endpoint == null ) {
+            logger.error("Null endpoint for the Zimory cloud");
+            throw new ZimoryConfigurationException("Null endpoint for Zimory cloud");
         }
-        try {
-            URI uri = new URI(endpoint);
-
-            endpoint = uri.getScheme() + "://" + (new String(ctx.getAccessPublic(), "utf-8") + ":" + new String(ctx.getAccessPrivate(), "utf-8")) + "@" + uri.getHost();
-            if( uri.getPort() > 0 && uri.getPort() != 80 && uri.getPort() != 443 ) {
-                endpoint = endpoint + ":" + uri.getPort();
-            }
-
-            if( resource.startsWith("/") ) {
-                resource = "rest/" + VERSION + resource;
-            }
-            else {
-                resource = "rest/" + VERSION + "/" + resource;
-            }
-            if( uri.getPath() == null || uri.getPath().equals("") || uri.getPath().equals("/") ) {
-                return (endpoint + "/" + resource);
-            }
-            else {
-                endpoint = endpoint + uri.getPath();
-                if( endpoint.endsWith("/") ) {
-                    return (endpoint + resource);
-                }
-                else {
-                    return (endpoint + "/" + resource);
-                }
-            }
+        if( endpoint.endsWith("/") ) {
+            endpoint = endpoint + "api/services";
         }
-        catch( URISyntaxException e ) {
-            throw new ZimoryConfigurationException(e);
+        else {
+            endpoint = endpoint + "/api/services";
         }
-        catch( UnsupportedEncodingException e ) {
-            throw new InternalException(e);
+        if( resource.startsWith("/") ) {
+            return endpoint + resource;
+        }
+        else {
+            return endpoint + "/" + resource;
         }
     }
 
