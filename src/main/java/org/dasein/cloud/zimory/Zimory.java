@@ -3,17 +3,13 @@ package org.dasein.cloud.zimory;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
-import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.zimory.compute.ZimoryCompute;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import org.w3c.dom.Document;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.UnsupportedEncodingException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
@@ -77,56 +73,6 @@ public class Zimory extends AbstractCloud {
         return new ZimoryDataCenters(this);
     }
 
-    public void productPackage() throws CloudException, InternalException {
-        ZimoryMethod method = new ZimoryMethod(this);
-        ProviderContext ctx = getContext();
-
-        if( ctx == null ) {
-            throw new NoContextException();
-        }
-        try {
-            JSONArray packages = method.list("Zimory_Account/" + new String(ctx.getAccessPublic(), "utf-8") + "/ActivePackages");
-
-            if( packages == null ) {
-                logger.error("No packages were returned from Zimory");
-                throw new CloudException("Unable to load packages from Zimory");
-            }
-            int count = 0;
-            for( int i=0; i<packages.length(); i++ ) {
-                try {
-                    JSONObject json = packages.getJSONObject(i);
-                    if( json.has("name") ) {
-                        String name = json.getString("name");
-
-                        if( name.toLowerCase().contains("cloud") && name.toLowerCase().contains("server") ) { //|| name.toLowerCase().contains("rightscale") ) {
-                            System.out.println("");
-                            System.out.println("--------------------------------------------------");
-                            System.out.println(name + ":");
-                            String[] keys = JSONObject.getNames(json);
-
-                            for( String key : keys ) {
-                                System.out.println(key + "=" + json.get(key));
-                            }
-                            System.out.println("--------------------------------------------------");
-                            System.out.println("");
-                            count++;
-                        }
-                    }
-                }
-                catch( JSONException e ) {
-                    logger.error("Error parsing JSON from cloud: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
-                }
-            }
-            System.out.println(count + " out of " + packages.length());
-        }
-        catch( UnsupportedEncodingException e ) {
-            logger.error("UTF-8 not supported: " + e.getMessage());
-            throw new InternalException(e);
-        }
-
-    }
     @Override
     public @Nonnull String getProviderName() {
         ProviderContext ctx = getContext();
@@ -179,7 +125,7 @@ public class Zimory extends AbstractCloud {
             }
             try {
                 ZimoryMethod method = new ZimoryMethod(this);
-                JSONObject account = method.getObject("Zimory_Account");
+                Document account = method.getObject("Zimory_Account");
 
                 if( account == null ) {
                     return null;

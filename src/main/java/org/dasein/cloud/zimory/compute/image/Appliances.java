@@ -27,8 +27,6 @@ import org.dasein.cloud.compute.MachineImageSupport;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.zimory.Zimory;
-import org.dasein.cloud.zimory.ZimoryMethod;
-import org.json.JSONArray;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -106,12 +104,7 @@ public class Appliances implements MachineImageSupport {
     @Nonnull
     @Override
     public Iterable<MachineImage> listMachineImagesOwnedBy(String accountId) throws CloudException, InternalException {
-        //ZimoryMethod method = new ZimoryMethod(provider);
-
-        //JSONArray list = method.list("");
-
-        provider.productPackage();
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+      return null; // TODO: implement me
     }
 
     @Nonnull

@@ -34,10 +34,8 @@ import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.zimory.NoContextException;
 import org.dasein.cloud.zimory.Zimory;
 import org.dasein.cloud.zimory.ZimoryMethod;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.omg.PortableServer.CurrentPackage.NoContext;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -205,42 +203,16 @@ public class Deployments implements VirtualMachineSupport {
         }
         ZimoryMethod method = new ZimoryMethod(provider);
 
-        JSONArray list = method.list("Zimory_Account/" + ctx.getAccountNumber() + "/getVirtualGuests");
+        Document response = method.getObject("deployments");
+
+        if( response == null ) {
+            logger.error("Unable to identify endpoint for deployments in Zimory");
+            throw new CloudException("Unable to identify endpoint for virtual machines (deployments)");
+        }
         ArrayList<VirtualMachine> vms = new ArrayList<VirtualMachine>();
 
-        for( int i=0; i<list.length(); i++ ) {
-            try {
-                VirtualMachine vm = toVirtualMachine(list.getJSONObject(i));
-
-                if( vm != null ) {
-                    vms.add(vm);
-                }
-            }
-            catch( JSONException e ) {
-                logger.error("Failed to parse JSON from cloud: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
-            }
-        }
+        // TODO: process response
         return vms;
-    }
-
-    private @Nullable String lookupDatacenter(@Nonnull VirtualMachine vm) throws CloudException, InternalException {
-        ZimoryMethod method = new ZimoryMethod(provider);
-
-        JSONObject json = method.getObject("Zimory_Virtual_Guest/" + vm.getProviderVirtualMachineId() + "/getDatacenter");
-
-        if( json != null && json.has("name") ) {
-            try {
-                return json.getString("name");
-            }
-            catch( JSONException e ) {
-                logger.error("Error parsing JSON from cloud: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
-            }
-        }
-        return null;
     }
 
     @Override
@@ -309,88 +281,8 @@ public class Deployments implements VirtualMachineSupport {
         return new String[0];  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    private void setImage(@Nonnull VirtualMachine vm) {
-        try {
-            ZimoryMethod method = new ZimoryMethod(provider);
-
-            JSONObject json = method.getObject("Zimory_Virtual_Guest/" + vm.getProviderVirtualMachineId() + "/getOrderTemplate/HOURLY");
-
-            if( json != null ) {
-               // TODO: implement me
-            }
-        }
-        catch( Throwable ignore ) {
-            // Zimory throws crap for no good reason here
-        }
-    }
-
-    private void setNetworking(@Nonnull VirtualMachine vm) throws CloudException, InternalException {
-        ZimoryMethod method = new ZimoryMethod(provider);
-
-        JSONArray nics = method.list("Zimory_Virtual_Guest/" + vm.getProviderVirtualMachineId() + "/getNetworkComponents");
-
-        if( nics != null ) {
-            String vlanId = null;
-            int port = -1;
-
-            for( int i=0; i<nics.length(); i++ ) {
-                //{"createDate":"2012-02-25T17:35:21-06:00","guestId":658275,"id":637240,"macAddress":"06:4f:09:1a:0a:ab","maxSpeed":10,"modifyDate":"2012-02-25T17:37:22-06:00","name":"eth","networkId":508068,"port":0,"speed":10,"status":"ACTIVE","uuid":"c51f1e8e-7e59-54b9-53d0-8e4014ccb449","primaryIpAddress":"10.70.77.194"},
-                //{"createDate":"2012-02-25T17:35:21-06:00","guestId":658275,"id":637239,"macAddress":"06:72:61:2b:3e:04","maxSpeed":10,"modifyDate":"2012-02-25T17:37:28-06:00","name":"eth","networkId":508069,"port":1,"speed":10,"status":"ACTIVE","uuid":"270ba206-cba4-b0d7-639e-6811137cbe61","primaryIpAddress":"37.58.65.250"}
-                try {
-                    JSONObject json = nics.getJSONObject(i);
-                    String id;
-
-                    if( !json.has("id") || !json.has("port") ) {
-                        continue;
-                    }
-                    if( vlanId == null || json.getInt("port") < port ) {
-                        vlanId = json.getString("id");
-                    }
-                }
-                catch( JSONException e ) {
-                    logger.error("Error parsing JSON from cloud: " + e.getMessage());
-                    e.printStackTrace();
-                    throw new CloudException(e);
-                }
-            }
-            vm.setProviderVlanId(vlanId);
-        }
-    }
-
-    private void setState(@Nonnull VirtualMachine vm) throws CloudException, InternalException {
-        ZimoryMethod method = new ZimoryMethod(provider);
-
-        JSONObject json = method.getObject("Zimory_Virtual_Guest/" + vm.getProviderVirtualMachineId() + "/getStatus");
-
-        if( json == null ) {
-            vm.setCurrentState(VmState.PENDING);
-        }
-        else if( json.has("keyName") ) {
-            try {
-                String status = json.getString("keyName");
-
-                if( status == null || status.equals("") ) {
-                    vm.setCurrentState(VmState.PENDING);
-                }
-                else if( status.equalsIgnoreCase("active") ) {
-                    vm.setCurrentState(VmState.RUNNING);
-                }
-                else {
-                    vm.setCurrentState(VmState.PENDING);
-                    logger.warn("DEBUG: Unknown Zimory VM state: " + status);
-                    System.out.println("Unknown state: " + status);
-                }
-            }
-            catch( JSONException e ) {
-                logger.error("Error parsing JSON from cloud: " + e.getMessage());
-                e.printStackTrace();
-                throw new CloudException(e);
-            }
-        }
-    }
-
-    private @Nullable VirtualMachine toVirtualMachine(@Nullable JSONObject json) throws CloudException, InternalException {
-        if( json == null ) {
+    private @Nullable VirtualMachine toVirtualMachine(@Nullable Node node) throws CloudException, InternalException {
+        if( node == null ) {
             return null;
         }
         ProviderContext ctx = provider.getContext();
@@ -412,8 +304,9 @@ public class Deployments implements VirtualMachineSupport {
         vm.setCurrentState(VmState.PENDING);
         vm.setImagable(true);
 
-        try {
+        //try {
             // "primaryBackendIpAddress":"10.70.77.194","primaryIpAddress":"37.58.65.250"}
+            /*
             if( json.has("id") ) {
                 vm.setProviderVirtualMachineId(json.getString("id"));
             }
@@ -447,10 +340,12 @@ public class Deployments implements VirtualMachineSupport {
             e.printStackTrace();
             throw new CloudException(e);
         }
+                    */
 
         if( vm.getProviderVirtualMachineId() == null ) {
             return null;
         }
+        /*
         String regionId = lookupDatacenter(vm);
 
         if( regionId == null ) {
@@ -459,12 +354,14 @@ public class Deployments implements VirtualMachineSupport {
         if( !regionId.equals(ctx.getRegionId()) ) {
             return null;
         }
-        vm.setProviderRegionId(regionId);
-        vm.setProviderDataCenterId(regionId);
+        */
 
-        setNetworking(vm);
-        setState(vm);
-        setImage(vm);
+        //vm.setProviderRegionId(regionId);
+        //vm.setProviderDataCenterId(regionId);
+
+        //setNetworking(vm);
+        //setState(vm);
+        //setImage(vm);
 
         //vm.setProductId(product);
 

@@ -38,19 +38,20 @@ import org.dasein.cloud.CloudErrorType;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -69,76 +70,42 @@ public class ZimoryMethod {
 
     static private final int OK             = 200;
     static private final int NO_CONTENT     = 204;
-    static private final int BAD_REQUEST     = 400;
+    static private final int BAD_REQUEST    = 400;
     static private final int NOT_FOUND      = 404;
 
-
-    static public @Nullable String seekValue(@Nonnull String body, @Nonnull String key) {
-        body = body.trim();
-        if( body.length() > 0 ) {
-            String[] lines = body.split("\n");
-
-            for( String line : lines ) {
-                line = line.trim();
-                int idx = line.indexOf(" ");
-
-                if( idx == -1 ) {
-                    if( line.equals(key) ) {
-                        return null;
-                    }
-                }
-                else {
-                    String k = line.substring(0, idx);
-
-                    if( k.equals(key) ) {
-                        return line.substring(idx+1);
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    static public @Nonnull Map<String,String> toMap(@Nonnull String body) {
-        HashMap<String,String> values = new HashMap<String, String>();
-
-        body = body.trim();
-        if( body.length() > 0 ) {
-            String[] lines = body.split("\n");
-
-            for( String line : lines ) {
-                line = line.trim();
-
-                int idx = line.indexOf(" ");
-
-                if( idx == -1 ) {
-                    values.put(line, null);
-                }
-                else {
-                    String k = line.substring(0, idx);
-
-                    values.put(k, line.substring(idx+1));
-                }
-            }
-        }
-        return values;
-    }
 
     private Zimory provider;
 
     public ZimoryMethod(@Nonnull Zimory provider) { this.provider = provider; }
 
-    public @Nullable JSONObject getObject(@Nonnull String resource) throws InternalException, CloudException {
+    public @Nullable Document getObject(@Nonnull String resource) throws InternalException, CloudException {
         String body = getString(resource);
 
         if( body == null || body.trim().length() < 1 ) {
             return null;
         }
         try {
-            return new JSONObject(body);
+            ByteArrayInputStream bas = new ByteArrayInputStream(body.getBytes("utf-8"));
+
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder parser = factory.newDocumentBuilder();
+
+            return parser.parse(bas);
         }
-        catch( JSONException e ) {
-            logger.warn("Error parsing JSON from cloud: " + e.getMessage());
+        catch( UnsupportedEncodingException e ) {
+            logger.error("UTF-8 not supported: " + e.getMessage());
+            throw new InternalException(e);
+        }
+        catch( ParserConfigurationException e ) {
+            logger.error("Misconfigured XML parser: " + e.getMessage());
+            throw new InternalException(e);
+        }
+        catch( SAXException e ) {
+            logger.error("Error parsing XML from the cloud provider: " + e.getMessage());
+            throw new CloudException(e);
+        }
+        catch( IOException e ) {
+            logger.error("Error communicating with the cloud provider: " + e.getMessage());
             throw new CloudException(e);
         }
     }
@@ -353,28 +320,36 @@ public class ZimoryMethod {
         }
     }
 
-    public @Nullable JSONArray list(@Nonnull String resource) throws InternalException, CloudException {
-        String body = getString(resource);
-
-        if( body == null ) {
-            return null;
-        }
-        try {
-            return new JSONArray(body.trim());
-        }
-        catch( JSONException e ) {
-            logger.warn("Error parsing JSON from cloud: " + e.getMessage());
-            throw new CloudException(e);
-        }
-    }
-
-    public @Nullable Map<String,String> postObject(@Nonnull String resource, @Nonnull String body) throws InternalException, CloudException {
+    public @Nullable Document postObject(@Nonnull String resource, @Nonnull String body) throws InternalException, CloudException {
         String response = postString(resource, body);
 
         if( response == null || response.trim().length() < 1 ) {
             return null;
         }
-        return toMap(response);
+        try {
+            ByteArrayInputStream bas = new ByteArrayInputStream(response.getBytes("utf-8"));
+
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder parser = factory.newDocumentBuilder();
+
+            return parser.parse(bas);
+        }
+        catch( UnsupportedEncodingException e ) {
+            logger.error("UTF-8 not supported: " + e.getMessage());
+            throw new InternalException(e);
+        }
+        catch( ParserConfigurationException e ) {
+            logger.error("Misconfigured XML parser: " + e.getMessage());
+            throw new InternalException(e);
+        }
+        catch( SAXException e ) {
+            logger.error("Error parsing XML from the cloud provider: " + e.getMessage());
+            throw new CloudException(e);
+        }
+        catch( IOException e ) {
+            logger.error("Error communicating with the cloud provider: " + e.getMessage());
+            throw new CloudException(e);
+        }
     }
 
     public @Nullable String postString(@Nonnull String resource, @Nonnull String body) throws InternalException, CloudException {
