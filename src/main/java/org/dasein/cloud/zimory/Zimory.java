@@ -149,6 +149,45 @@ public class Zimory extends AbstractCloud {
         return new ZimoryDataCenters(this);
     }
 
+    public @Nonnull String getDelegateRoleId() throws CloudException, InternalException {
+        ZimoryMethod method = new ZimoryMethod(this);
+        Document xml = method.getObject("delegateRoles");
+
+        if( xml == null ) {
+            logger.error("Unable to communicate with the Zimory delegate roles endpoint");
+            throw new CloudException("Could not communicate with the Zimory delegate roles endpoint");
+        }
+        NodeList clouds = xml.getElementsByTagName("delegateRole");
+        String id = null, name;
+
+        for( int i=0; i<clouds.getLength(); i++ ) {
+            String l= null, p = null, q = null;
+            NodeList attrs = clouds.item(i).getChildNodes();
+
+            name = null;
+            for( int j=0; j<attrs.getLength(); j++ ) {
+                Node attr = attrs.item(j);
+
+                if( attr.getNodeName().equalsIgnoreCase("id") && attr.hasChildNodes() ) {
+                    id = attr.getFirstChild().getNodeValue().trim();
+                }
+                else if( attr.getNodeName().equalsIgnoreCase("name") && attr.hasChildNodes() ) {
+                    name = attr.getFirstChild().getNodeValue().trim();
+                }
+            }
+            if( id == null ) {
+                continue;
+            }
+            if( name != null && name.equalsIgnoreCase("FullPermissions") ) {
+                return id;
+            }
+        }
+        if( id == null ) {
+            throw new CloudException("No matching delegate role");
+        }
+        return id;
+    }
+
     @Override
     public @Nonnull ZimoryNetwork getNetworkServices() {
         return new ZimoryNetwork(this);

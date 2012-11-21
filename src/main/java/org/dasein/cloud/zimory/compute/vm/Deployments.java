@@ -352,13 +352,10 @@ public class Deployments implements VirtualMachineSupport {
 
             xml.append("<qualifierId>").append(qualifierId).append("</qualifierId>");
 
-            /*
-            Zimory.AccountOwner owner = provider.getAccountOwner();
 
-            xml.append("<userDelegates>");
-            xml.append("<accountUser><id>").append(owner.userId).append("</id>").append("</accountUser>");
-            xml.append("</userDelegates>");
-            */
+            String delegateRoleId = provider.getDelegateRoleId();
+
+            xml.append("<defaultDelegateRole><id>").append(delegateRoleId).append("</id>").append("</defaultDelegateRole>");
 
             xml.append("</deploymentCreationInfo>");
 
@@ -592,6 +589,9 @@ public class Deployments implements VirtualMachineSupport {
         }
         else if( state.equals("STOPPED") ) {
             return VmState.STOPPED;
+        }
+        else if( state.equals("RUNNING") ) {
+            return VmState.RUNNING;
         }
         else {
             logger.warn("DEBUG: Unknown Zimory virtual machine state: " + state);

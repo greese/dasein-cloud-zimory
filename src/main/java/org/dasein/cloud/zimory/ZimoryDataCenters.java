@@ -121,6 +121,7 @@ public class ZimoryDataCenters implements DataCenterServices {
             regions = new ArrayList<Region>();
 
             ZimoryMethod method = new ZimoryMethod(provider);
+
             Document xml = method.getObject("clouds");
 
             if( xml == null ) {

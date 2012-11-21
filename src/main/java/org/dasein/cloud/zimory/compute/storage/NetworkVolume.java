@@ -389,7 +389,6 @@ public class NetworkVolume implements VolumeSupport {
         return new ResourceStatus(idNode.getNodeValue().trim(), state);
     }
 
-    //<networkStorageSizeGb>128</networkStorageSizeGb>
     private @Nullable Volume toVolume(@Nullable Node node) throws CloudException, InternalException {
         if( node == null ) {
             return null;
