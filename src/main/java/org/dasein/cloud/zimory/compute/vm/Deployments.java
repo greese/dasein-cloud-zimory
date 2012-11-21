@@ -303,43 +303,6 @@ public class Deployments implements VirtualMachineSupport {
 
     // <qualifierId>7</qualifierId>
 
-    private @Nonnull String getQualifierId(@Nonnull String locationId, String providerId) throws CloudException, InternalException {
-        ZimoryMethod method = new ZimoryMethod(provider);
-        Document xml = method.getObject("clouds");
-
-        if( xml == null ) {
-            logger.error("Unable to communicate with the Zimory clouds endpoint");
-            throw new CloudException("Could not communicate with the Zimory clouds endpoint");
-        }
-        NodeList clouds = xml.getElementsByTagName("cloud");
-
-        for( int i=0; i<clouds.getLength(); i++ ) {
-            String l= null, p = null, q = null;
-            NodeList attrs = clouds.item(i).getChildNodes();
-
-            for( int j=0; j<attrs.getLength(); j++ ) {
-                Node attr = attrs.item(j);
-
-                if( attr.getNodeName().equalsIgnoreCase("providerId") && attr.hasChildNodes() ) {
-                    p = attr.getFirstChild().getNodeValue().trim();
-                }
-                else if( attr.getNodeName().equalsIgnoreCase("locationId") && attr.hasChildNodes() ) {
-                    l = attr.getFirstChild().getNodeValue().trim();
-                }
-                else if( attr.getNodeName().equalsIgnoreCase("qualifierId") && attr.hasChildNodes() ) {
-                    q = attr.getFirstChild().getNodeValue().trim();
-                }
-            }
-            if( l == null || p == null || q == null ) {
-                continue;
-            }
-            if( l.equals(locationId) && p.equals(providerId) ) {
-                return q;
-            }
-        }
-        throw new CloudException("No matching qualifier ID");
-    }
-
     @Override
     public @Nonnull VirtualMachine launch(@Nonnull VMLaunchOptions withLaunchOptions) throws CloudException, InternalException {
         APITrace.begin(provider, "launchVirtualMachine");
@@ -385,7 +348,7 @@ public class Deployments implements VirtualMachineSupport {
             xml.append("<locationId>").append(parts[0]).append("</locationId>");
             xml.append("<providerId>").append(parts[1]).append("</providerId>");
 
-            String qualifierId = getQualifierId(parts[0], parts[1]);
+            String qualifierId = provider.getQualifierId(parts[0], parts[1]);
 
             xml.append("<qualifierId>").append(qualifierId).append("</qualifierId>");
 

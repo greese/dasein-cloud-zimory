@@ -162,6 +162,43 @@ public class Zimory extends AbstractCloud {
         return (name == null ? "Zimory" : name);
     }
 
+    public @Nonnull String getQualifierId(@Nonnull String locationId, String providerId) throws CloudException, InternalException {
+        ZimoryMethod method = new ZimoryMethod(this);
+        Document xml = method.getObject("clouds");
+
+        if( xml == null ) {
+            logger.error("Unable to communicate with the Zimory clouds endpoint");
+            throw new CloudException("Could not communicate with the Zimory clouds endpoint");
+        }
+        NodeList clouds = xml.getElementsByTagName("cloud");
+
+        for( int i=0; i<clouds.getLength(); i++ ) {
+            String l= null, p = null, q = null;
+            NodeList attrs = clouds.item(i).getChildNodes();
+
+            for( int j=0; j<attrs.getLength(); j++ ) {
+                Node attr = attrs.item(j);
+
+                if( attr.getNodeName().equalsIgnoreCase("providerId") && attr.hasChildNodes() ) {
+                    p = attr.getFirstChild().getNodeValue().trim();
+                }
+                else if( attr.getNodeName().equalsIgnoreCase("locationId") && attr.hasChildNodes() ) {
+                    l = attr.getFirstChild().getNodeValue().trim();
+                }
+                else if( attr.getNodeName().equalsIgnoreCase("qualifierId") && attr.hasChildNodes() ) {
+                    q = attr.getFirstChild().getNodeValue().trim();
+                }
+            }
+            if( l == null || p == null || q == null ) {
+                continue;
+            }
+            if( l.equals(locationId) && p.equals(providerId) ) {
+                return q;
+            }
+        }
+        throw new CloudException("No matching qualifier ID");
+    }
+
     public @Nonnegative long parseTimestamp(@Nullable String date) throws CloudException {
         //"createDate":"2012-02-25T17:34:22-06:00"
         if( date == null || date.equals("") ) {

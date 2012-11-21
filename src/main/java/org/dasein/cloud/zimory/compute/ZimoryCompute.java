@@ -19,6 +19,7 @@ package org.dasein.cloud.zimory.compute;
 import org.dasein.cloud.compute.AbstractComputeServices;
 import org.dasein.cloud.zimory.Zimory;
 import org.dasein.cloud.zimory.compute.image.Appliances;
+import org.dasein.cloud.zimory.compute.storage.NetworkVolume;
 import org.dasein.cloud.zimory.compute.vm.Deployments;
 
 import javax.annotation.Nonnull;
@@ -43,5 +44,10 @@ public class ZimoryCompute extends AbstractComputeServices {
     @Override
     public @Nonnull Deployments getVirtualMachineSupport() {
         return new Deployments(provider);
+    }
+
+    @Override
+    public @Nonnull NetworkVolume getVolumeSupport() {
+        return new NetworkVolume(provider);
     }
 }
