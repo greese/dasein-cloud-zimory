@@ -3,7 +3,7 @@
   
   <groupId>org.dasein</groupId>
   <artifactId>dasein-cloud-zimory</artifactId>
-  <version>2012.09-SNAPSHOT</version>
+  <version>2013.01-SNAPSHOT</version>
   
   <name>Dasein Cloud Zimory</name>
   <description>Dasein Cloud implementation for Zimory</description>
@@ -41,7 +41,7 @@
     <dependency>
         <groupId>org.dasein</groupId>
         <artifactId>dasein-cloud-core</artifactId>
-        <version>2012.09</version>
+        <version>2013.01-SNAPSHOT</version>
         <scope>compile</scope>
         <optional>false</optional>
     </dependency>   
@@ -69,7 +69,7 @@
       <dependency>
           <groupId>org.dasein</groupId>
           <artifactId>dasein-cloud-test</artifactId>
-          <version>2012.09.8</version>
+          <version>2013.01-SNAPSHOT</version>
           <scope>test</scope>
           <optional>false</optional>
       </dependency>
@@ -180,6 +180,14 @@
                 <property>
                     <name>apiSecretKey</name>
                     <value>${apiSecretKey}</value>
+                </property>
+                <property>
+                    <name>x509Cert</name>
+                    <value>${x509Cert}</value>
+                </property>
+                <property>
+                    <name>x509Key</name>
+                    <value>${x509Key}</value>
                 </property>
                 <property>
                     <name>cloudName</name>

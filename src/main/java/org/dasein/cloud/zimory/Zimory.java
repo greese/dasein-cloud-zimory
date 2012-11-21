@@ -3,9 +3,13 @@ package org.dasein.cloud.zimory;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
+import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.zimory.compute.ZimoryCompute;
+import org.dasein.cloud.zimory.network.ZimoryNetwork;
 import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -24,6 +28,11 @@ import java.text.SimpleDateFormat;
  */
 public class Zimory extends AbstractCloud {
     static private final Logger logger = getLogger(Zimory.class);
+
+    static public class AccountOwner {
+        public String userId;
+        public String login;
+    }
 
     static private @Nonnull String getLastItem(@Nonnull String name) {
         int idx = name.lastIndexOf('.');
@@ -75,6 +84,53 @@ public class Zimory extends AbstractCloud {
 
     public Zimory() { }
 
+    public @Nonnull AccountOwner getAccountOwner() throws CloudException, InternalException {
+        ProviderContext ctx = getContext();
+
+        if( ctx == null ) {
+            throw new NoContextException();
+        }
+        ZimoryMethod method = new ZimoryMethod(this);
+
+        Document doc = method.getObject("accounts/" + ctx.getAccountNumber());
+
+        if( doc == null ) {
+            throw new CloudException("Unable to identify accounts endpoint");
+        }
+        NodeList accounts = doc.getElementsByTagName("account");
+
+        if( accounts.getLength() < 1 ) {
+            throw new CloudException("Unable to identify the account owner");
+        }
+        Node account = accounts.item(0);
+        AccountOwner owner = new AccountOwner();
+
+        NodeList attributes = account.getChildNodes();
+
+        for( int j=0; j<attributes.getLength(); j++ ) {
+            Node a = attributes.item(j);
+
+            if( a.getNodeName().equalsIgnoreCase("userAccountOwner") ) {
+                NodeList uaList = a.getChildNodes();
+
+                for( int k=0; k<uaList.getLength(); k++ ) {
+                    Node ua = uaList.item(k);
+
+                    if( ua.getNodeName().equalsIgnoreCase("login") && ua.hasChildNodes() ) {
+                        owner.login = ua.getFirstChild().getNodeValue().trim();
+                    }
+                    else if( ua.getNodeName().equals("id") && ua.hasChildNodes() ) {
+                        owner.userId = ua.getFirstChild().getNodeValue().trim();
+                    }
+                }
+            }
+        }
+        if( owner.userId == null || owner.login == null ) {
+            throw new CloudException("Unable to identify the account owner");
+        }
+        return owner;
+    }
+
     @Override
     public @Nonnull String getCloudName() {
         ProviderContext ctx = getContext();
@@ -91,6 +147,11 @@ public class Zimory extends AbstractCloud {
     @Override
     public @Nonnull ZimoryDataCenters getDataCenterServices() {
         return new ZimoryDataCenters(this);
+    }
+
+    @Override
+    public @Nonnull ZimoryNetwork getNetworkServices() {
+        return new ZimoryNetwork(this);
     }
 
     @Override
@@ -145,12 +206,60 @@ public class Zimory extends AbstractCloud {
             }
             try {
                 ZimoryMethod method = new ZimoryMethod(this);
-                Document account = method.getObject("Zimory_Account");
+                Document doc = method.getObject("accounts");
 
-                if( account == null ) {
+                if( doc == null ) {
                     return null;
                 }
-                return (new String(ctx.getAccessPublic(), "utf-8"));
+                NodeList accounts = doc.getElementsByTagName("account");
+
+                if( accounts.getLength() == 1 ) {
+                    Node account = accounts.item(0);
+                    NodeList attributes = account.getChildNodes();
+
+                    for( int i=0; i<attributes.getLength(); i++ ) {
+                        Node a = attributes.item(i);
+
+                        if( a.getNodeName().equalsIgnoreCase("accountId") && a.hasChildNodes() ) {
+                            return a.getFirstChild().getNodeValue().trim();
+                        }
+                    }
+                    return null;
+                }
+                else {
+                    String accountId = null;
+
+                    for( int i=0; i<accounts.getLength(); i++ ) {
+                        NodeList attributes = accounts.item(i).getChildNodes();
+                        String id = null, login = null;
+
+                        for( int j=0; j<attributes.getLength(); j++ ) {
+                            Node a = attributes.item(j);
+
+                            if( a.getNodeName().equalsIgnoreCase("accountId") && a.hasChildNodes() ) {
+                                id = a.getFirstChild().getNodeValue().trim();
+                            }
+                            else if( a.getNodeName().equalsIgnoreCase("userAccountOwner") && a.hasChildNodes() ) {
+                                NodeList uaList = a.getChildNodes();
+
+                                for( int k=0; k<uaList.getLength(); k++ ) {
+                                    Node ua = uaList.item(k);
+
+                                    if( ua.getNodeName().equalsIgnoreCase("login") && ua.hasChildNodes() ) {
+                                        login = ua.getFirstChild().getNodeValue().trim();
+                                    }
+                                }
+                            }
+                        }
+                        if( ctx.getAccountNumber().equalsIgnoreCase(login) || ctx.getAccountNumber().equals(id) ) {
+                            return id;
+                        }
+                        else if( accountId == null ) {
+                            accountId = id;
+                        }
+                    }
+                    return accountId;
+                }
             }
             catch( Throwable t ) {
                 logger.error("Error testing Zimory credentials for " + ctx.getAccountNumber() + ": " + t.getMessage());

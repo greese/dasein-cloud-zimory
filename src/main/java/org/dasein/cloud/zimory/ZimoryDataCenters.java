@@ -19,9 +19,15 @@ package org.dasein.cloud.zimory;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
+import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.dc.DataCenterServices;
 import org.dasein.cloud.dc.Region;
+import org.dasein.cloud.util.APITrace;
+import org.dasein.cloud.util.Cache;
+import org.dasein.cloud.util.CacheLevel;
+import org.dasein.util.uom.time.Hour;
+import org.dasein.util.uom.time.TimePeriod;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -99,62 +105,132 @@ public class ZimoryDataCenters implements DataCenterServices {
 
     @Override
     public Collection<Region> listRegions() throws InternalException, CloudException {
-        ZimoryMethod method = new ZimoryMethod(provider);
-        Document xml = method.getObject("constants/locations");
+        APITrace.begin(provider, "listRegions");
+        try {
+            ProviderContext ctx = provider.getContext();
 
+            if( ctx == null ) {
+                throw new NoContextException();
+            }
+            Cache<Region> cache = Cache.getInstance(provider, "regions", Region.class, CacheLevel.CLOUD_ACCOUNT, new TimePeriod<Hour>(10, TimePeriod.HOUR));
+            Collection<Region> regions = (Collection<Region>)cache.get(ctx);
+
+            if( regions != null ) {
+                return regions;
+            }
+            regions = new ArrayList<Region>();
+
+            ZimoryMethod method = new ZimoryMethod(provider);
+            Document xml = method.getObject("clouds");
+
+            if( xml == null ) {
+                logger.error("Unable to communicate with the Zimory clouds endpoint");
+                throw new CloudException("Could not communicate with the Zimory clouds endpoint");
+            }
+            NodeList clouds = xml.getElementsByTagName("cloud");
+
+            for( int i=0; i<clouds.getLength(); i++ ) {
+                Region r = toRegion(method, clouds.item(i));
+
+                if( r != null ) {
+                    regions.add(r);
+                }
+
+            }
+            cache.put(ctx, regions);
+            return regions;
+        }
+        finally {
+            APITrace.end();
+        }
+    }
+
+    private @Nullable Region toRegion(@Nonnull ZimoryMethod method, @Nullable Node xml) throws CloudException, InternalException {
         if( xml == null ) {
+            return null;
+        }
+        NodeList attributes = xml.getChildNodes();
+        String providerId = null, locationId = null;
+
+        for( int i=0; i<attributes.getLength(); i++ ) {
+            Node attribute = attributes.item(i);
+
+            if( attribute.getNodeName().equalsIgnoreCase("providerId") && attribute.hasChildNodes() ) {
+                providerId = attribute.getFirstChild().getNodeValue().trim();
+            }
+            else if( attribute.getNodeName().equalsIgnoreCase("locationId") && attribute.hasChildNodes() ) {
+                locationId = attribute.getFirstChild().getNodeValue().trim();
+            }
+        }
+        if( providerId == null || locationId == null ) {
+            return null;
+        }
+        Document doc = method.getObject("constants/locations/" + locationId);
+
+        if( doc == null ) {
             logger.error("Unable to communicate with the Zimory locations endpoint");
             throw new CloudException("Could not communicate with the Zimory locations endpoint");
         }
-        NodeList locations = xml.getElementsByTagName("location");
-        ArrayList<Region> regions = new ArrayList<Region>();
+        NodeList locations = doc.getElementsByTagName("location");
+        String description = null;
 
         for( int i=0; i<locations.getLength(); i++ ) {
             Node location = locations.item(i);
 
             if( location.hasChildNodes() ) {
-                Region r = toRegion(location);
+                attributes = location.getChildNodes();
+                for( int j=0; j<attributes.getLength(); j++ ) {
+                    Node attribute = attributes.item(j);
 
-                if( r != null ) {
-                    regions.add(r);
+                    if( attribute.getNodeName().equalsIgnoreCase("description") && attribute.hasChildNodes() ) {
+                        description = attribute.getFirstChild().getNodeValue().trim();
+                    }
                 }
             }
         }
+        doc = method.getObject("constants/providers/" + providerId);
 
-        return regions;
-    }
-
-    private @Nullable Region toRegion(@Nullable Node xml) throws CloudException, InternalException {
-        if( xml == null ) {
-            return null;
+        if( doc == null ) {
+            logger.error("Unable to communicate with the Zimory providers endpoint");
+            throw new CloudException("Could not communicate with the Zimory providers endpoint");
         }
+        NodeList providers = doc.getElementsByTagName("provider");
+        String name = null;
 
-        NodeList attributes = xml.getChildNodes();
-        String description = null;
+        for( int i=0; i<providers.getLength(); i++ ) {
+            Node provider = providers.item(i);
 
-        for( int i=0; i<attributes.getLength(); i++ ) {
-            Node attribute = attributes.item(i);
+            if( provider.hasChildNodes() ) {
+                attributes = provider.getChildNodes();
+                for( int j=0; j<attributes.getLength(); j++ ) {
+                    Node attribute = attributes.item(j);
 
-            if( attribute.getNodeName().equalsIgnoreCase("description") && attribute.hasChildNodes() ) {
-                description = attribute.getFirstChild().getNodeValue().trim();
+                    if( attribute.getNodeName().equalsIgnoreCase("name") && attribute.hasChildNodes() ) {
+                        name = attribute.getFirstChild().getNodeValue().trim();
+                    }
+                }
             }
         }
-        if( description == null ) {
-            return null;
-        }
-
         Region region = new Region();
 
         region.setActive(true);
         region.setAvailable(true);
         region.setJurisdiction("EU");
-        region.setName(description);
-        region.setProviderRegionId(description);
-
-        if( region.getName() == null ) {
-            region.setName(region.getProviderRegionId());
+        if( name == null && description == null ) {
+            region.setName(locationId + ":" + providerId);
         }
-        if( description.toLowerCase().startsWith("eu") ) {
+        else if( name == null ) {
+            region.setName(description);
+        }
+        else if( description == null ) {
+            region.setName(name);
+        }
+        else {
+            region.setName(name + " - " + description);
+        }
+        region.setProviderRegionId(locationId + ":" + providerId);
+
+        if( description != null && description.startsWith("eu") ) {
             region.setJurisdiction("EU");
         }
         return region;
