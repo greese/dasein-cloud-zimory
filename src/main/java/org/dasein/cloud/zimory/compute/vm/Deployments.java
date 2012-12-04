@@ -108,6 +108,11 @@ public class Deployments implements VirtualMachineSupport {
         return "";
     }
 
+    @Override
+    public int getCostFactor(@Nonnull VmState vmState) throws InternalException, CloudException {
+        return 100;
+    }
+
     static public class MI {
         public String imageId;
         public Platform platform;
@@ -609,6 +614,11 @@ public class Deployments implements VirtualMachineSupport {
 
     @Override
     public void stop(@Nonnull String vmId) throws InternalException, CloudException {
+        stop(vmId, false);
+    }
+
+    @Override
+    public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
         APITrace.begin(provider, "stopVm");
         try {
             ZimoryMethod method = new ZimoryMethod(provider);
@@ -873,5 +883,10 @@ public class Deployments implements VirtualMachineSupport {
         }
 
         return vm;
+    }
+
+    @Override
+    public void updateTags(@Nonnull String vmId, @Nonnull Tag... tags) throws CloudException, InternalException {
+        // NO-OP
     }
 }
