@@ -37,7 +37,6 @@ import org.dasein.cloud.compute.VirtualMachineSupport;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.identity.ServiceAction;
-import org.dasein.cloud.network.NetworkServices;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.cloud.network.VLANSupport;
 import org.dasein.cloud.util.APITrace;
@@ -45,7 +44,9 @@ import org.dasein.cloud.util.Cache;
 import org.dasein.cloud.util.CacheLevel;
 import org.dasein.cloud.zimory.NoContextException;
 import org.dasein.cloud.zimory.Zimory;
+import org.dasein.cloud.zimory.ZimoryConfigurationException;
 import org.dasein.cloud.zimory.ZimoryMethod;
+import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Megabyte;
 import org.dasein.util.uom.storage.Storage;
@@ -204,8 +205,31 @@ public class Deployments implements VirtualMachineSupport {
     public @Nullable VirtualMachine getVirtualMachine(@Nonnull String vmId) throws InternalException, CloudException {
         APITrace.begin(provider, "getVirtualMachine");
         try {
-            for( VirtualMachine vm : listVirtualMachines() ) {
-                if( vmId.equals(vm.getProviderVirtualMachineId()) ) {
+            try {
+                Long.parseLong(vmId);
+            }
+            catch( NumberFormatException ignore ) {
+                return null;
+            }
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new NoContextException();
+            }
+            ZimoryMethod method = new ZimoryMethod(provider);
+
+            Document response = method.getObject("deployments/" + vmId);
+
+            if( response == null ) {
+                logger.error("Unable to identify endpoint for deployments in Zimory");
+                throw new CloudException("Unable to identify endpoint for virtual machines (deployments)");
+            }
+            NodeList list = response.getElementsByTagName("deployment");
+
+            for( int i=0; i<list.getLength(); i++ ) {
+                VirtualMachine vm = toVirtualMachine(list.item(i));
+
+                if( vm != null ) {
                     return vm;
                 }
             }
@@ -360,7 +384,20 @@ public class Deployments implements VirtualMachineSupport {
             xml.append("</deploymentCreationInfo>");
 
             ZimoryMethod method = new ZimoryMethod(provider);
+            long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 20L);
 
+            method.postObject("deployments", xml.toString());
+
+            while( timeout > System.currentTimeMillis() ) {
+                for( VirtualMachine vm : listVirtualMachines() ) {
+                    if( vm.getName().equalsIgnoreCase(withLaunchOptions.getHostName()) ) {
+                        return vm;
+                    }
+                }
+                try { Thread.sleep(15000L); }
+                catch( InterruptedException ignore ) { }
+            }
+            /*
             Document doc = method.postObject("deployments", xml.toString());
 
             if( doc == null ) {
@@ -376,6 +413,7 @@ public class Deployments implements VirtualMachineSupport {
                     return vm;
                 }
             }
+            */
             logger.error("The POST to create a new virtual machine in Zimory succeeded, but nothing was returned");
             throw new CloudException("The POST to create a new virtual machine in Zimory succeeded, but nothing was returned");
         }
@@ -397,20 +435,13 @@ public class Deployments implements VirtualMachineSupport {
             cfg.withBoostrapKey(withKeypairId);
         }
         if( inVlanId != null ) {
-            NetworkServices svc = provider.getNetworkServices();
+            VLANSupport support = provider.getNetworkServices().getVlanSupport();
+            Subnet subnet = support.getSubnet(inVlanId);
 
-            if( svc != null ) {
-                VLANSupport support = svc.getVlanSupport();
-
-                if( support != null ) {
-                    Subnet subnet = support.getSubnet(inVlanId);
-
-                    if( subnet == null ) {
-                        throw new CloudException("No such VPC subnet: " + inVlanId);
-                    }
-                    dataCenterId = subnet.getProviderDataCenterId();
-                }
+            if( subnet == null ) {
+                throw new CloudException("No such VPC subnet: " + inVlanId);
             }
+            dataCenterId = subnet.getProviderDataCenterId();
             cfg.inVlan(null, dataCenterId, inVlanId);
         }
         else {
@@ -481,7 +512,36 @@ public class Deployments implements VirtualMachineSupport {
 
     @Override
     public @Nonnull Iterable<ResourceStatus> listVirtualMachineStatus() throws InternalException, CloudException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        APITrace.begin(provider, "listVirtualMachineStatus");
+        try {
+            ProviderContext ctx = provider.getContext();
+
+            if( ctx == null ) {
+                throw new NoContextException();
+            }
+            ZimoryMethod method = new ZimoryMethod(provider);
+
+            Document response = method.getObject("deployments");
+
+            if( response == null ) {
+                logger.error("Unable to identify endpoint for deployments in Zimory");
+                throw new CloudException("Unable to identify endpoint for virtual machines (deployments)");
+            }
+            ArrayList<ResourceStatus> vms = new ArrayList<ResourceStatus>();
+            NodeList list = response.getElementsByTagName("deployment");
+
+            for( int i=0; i<list.getLength(); i++ ) {
+                ResourceStatus status = toStatus(list.item(i));
+
+                if( status != null ) {
+                    vms.add(status);
+                }
+            }
+            return vms;
+        }
+        finally {
+            APITrace.end();
+        }
     }
 
     @Override
@@ -525,7 +585,8 @@ public class Deployments implements VirtualMachineSupport {
 
     @Override
     public void reboot(@Nonnull String vmId) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        stop(vmId);
+        start(vmId);
     }
 
     @Override
@@ -535,12 +596,28 @@ public class Deployments implements VirtualMachineSupport {
 
     @Override
     public void start(@Nonnull String vmId) throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        APITrace.begin(provider, "startVm");
+        try {
+            ZimoryMethod method = new ZimoryMethod(provider);
+
+            method.postString("deployments/" + vmId + "/start", "");
+        }
+        finally {
+            APITrace.end();
+        }
     }
 
     @Override
     public void stop(@Nonnull String vmId) throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        APITrace.begin(provider, "stopVm");
+        try {
+            ZimoryMethod method = new ZimoryMethod(provider);
+
+            method.postString("deployments/" + vmId + "/stop", "");
+        }
+        finally {
+            APITrace.end();
+        }
     }
 
     @Override
@@ -570,7 +647,15 @@ public class Deployments implements VirtualMachineSupport {
 
     @Override
     public void terminate(@Nonnull String vmId) throws InternalException, CloudException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        APITrace.begin(provider, "terminateVm");
+        try {
+            ZimoryMethod method = new ZimoryMethod(provider);
+
+            method.delete("deployments/" + vmId);
+        }
+        finally {
+            APITrace.end();
+        }
     }
 
     @Override
@@ -600,6 +685,54 @@ public class Deployments implements VirtualMachineSupport {
         }
     }
 
+    private @Nullable ResourceStatus toStatus(@Nullable Node node) throws CloudException, InternalException {
+        if( node == null ) {
+            return null;
+        }
+        ProviderContext ctx = provider.getContext();
+
+        if( ctx == null ) {
+            throw new NoContextException();
+        }
+        String regionId = ctx.getRegionId();
+
+        if( regionId == null ) {
+            throw new ZimoryConfigurationException("No region was configured for this request");
+        }
+        String id = null, locationId = null, providerId = null;
+
+        if( node.hasAttributes() ) {
+            Node attr = node.getAttributes().getNamedItem("id");
+
+            if( attr != null ) {
+                id = attr.getNodeValue().trim();
+            }
+        }
+        if( id == null || id.equals("") ) {
+            return null;
+        }
+        NodeList attributes = node.getChildNodes();
+        VmState state = VmState.PENDING;
+
+        for( int i=0; i<attributes.getLength(); i++ ) {
+            Node attr = attributes.item(i);
+
+            if( attr.getNodeName().equalsIgnoreCase("state") && attr.hasChildNodes() ) {
+                state = toState(attr.getFirstChild().getNodeValue().trim());
+            }
+            else if( attr.getNodeName().equalsIgnoreCase("locationId") && attr.hasChildNodes() ) {
+                locationId = attr.getFirstChild().getNodeValue().trim();
+            }
+            else if( attr.getNodeName().equalsIgnoreCase("providerId") && attr.hasChildNodes() ) {
+                providerId = attr.getFirstChild().getNodeValue().trim();
+            }
+        }
+        if( !regionId.equals(locationId + ":" + providerId) ) {
+            return null;
+        }
+        return new ResourceStatus(id, state);
+    }
+
     private @Nullable VirtualMachine toVirtualMachine(@Nullable Node node) throws CloudException, InternalException {
         if( node == null ) {
             return null;
@@ -621,11 +754,12 @@ public class Deployments implements VirtualMachineSupport {
         if( id == null || id.equals("") ) {
             return null;
         }
-        String imageId = null, name = null, locationId = null, networkId = null, password = null, providerId = null;
+        String imageId = null, name = null, locationId = null, networkId = null, password = null, providerId = null, publicIp= null, privateIp = null;
         NodeList attributes = node.getChildNodes();
         int memory = 512, cpu = 1, performance = 1;
-        VmState state = VmState.PENDING;
         long creationDate = 0L;
+        VmState state = null;
+        Boolean active = null;
 
         for( int i=0; i<attributes.getLength(); i++ ) {
             Node attr = attributes.item(i);
@@ -641,6 +775,9 @@ public class Deployments implements VirtualMachineSupport {
             }
             else if( attr.getNodeName().equalsIgnoreCase("name") && attr.hasChildNodes() ) {
                 name = attr.getFirstChild().getNodeValue().trim();
+            }
+            else if( attr.getNodeName().equalsIgnoreCase("active") && attr.hasChildNodes() ) {
+                active = attr.getFirstChild().getNodeValue().trim().equalsIgnoreCase("true");
             }
             else if( attr.getNodeName().equalsIgnoreCase("networkId") && attr.hasChildNodes() ) {
                 networkId = attr.getFirstChild().getNodeValue().trim();
@@ -675,9 +812,23 @@ public class Deployments implements VirtualMachineSupport {
                     creationDate = provider.parseTimestamp(ds);
                 }
             }
+            else if( attr.getNodeName().equalsIgnoreCase("externalIpAddress") ) {
+                publicIp = attr.getFirstChild().getNodeValue().trim();
+            }
+            else if( attr.getNodeName().equalsIgnoreCase("internalIpAddress") ) {
+                privateIp = attr.getFirstChild().getNodeValue().trim();
+            }
         }
         if( !ctx.getRegionId().equals(locationId + ":" + providerId) ) {
             return null;
+        }
+        if( state == null ) {
+            if( active == null || !active ) {
+                return null;
+            }
+            else {
+                state = VmState.STOPPED;
+            }
         }
         if( name == null || name.equals("") ) {
             name = id;
@@ -711,22 +862,16 @@ public class Deployments implements VirtualMachineSupport {
 
         vm.setPlatform(img.platform);
         vm.setArchitecture(img.architecture);
+        vm.setProviderMachineImageId(imageId);
         vm.setCreationTimestamp(creationDate);
         vm.setProductId(performance + ":" + cpu + ":" + memory);
-        /*try {
-            if( json.has("primaryBackendIpAddress") ) {
-                vm.setPrivateIpAddresses(new String[] { json.getString("primaryBackendIpAddress") } );
-            }
-            if( json.has("primaryIpAddress") ) {
-                vm.setPublicIpAddresses(new String[] { json.getString("primaryIpAddress") });
-            }
+        if( publicIp != null ) {
+            vm.setPublicIpAddresses(new String[] { publicIp });
         }
-        catch( JSONException e ) {
-            logger.error("Error parsing JSON from cloud: " + e.getMessage());
-            e.printStackTrace();
-            throw new CloudException(e);
+        if( privateIp != null ) {
+            vm.setPrivateIpAddresses(new String[] { privateIp });
         }
-                    */
+
         return vm;
     }
 }

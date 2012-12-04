@@ -39,6 +39,7 @@ import org.dasein.cloud.zimory.NoContextException;
 import org.dasein.cloud.zimory.Zimory;
 import org.dasein.cloud.zimory.ZimoryConfigurationException;
 import org.dasein.cloud.zimory.ZimoryMethod;
+import org.dasein.util.CalendarWrapper;
 import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Storage;
 import org.dasein.util.uom.time.Day;
@@ -82,19 +83,6 @@ public class NetworkVolume implements VolumeSupport {
             return createVolume(VolumeCreateOptions.getInstance(new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), "dsn-auto-volume", "dsn-auto-volume").inDataCenter(inZone));
         }
     }
-
-    //<networkStorageCreationInfoMPO>
-    //<networkStorageName>new storage</networkStorageName>
-    //<networkStorageDescription>description</networkStorageDescription>
-    //<networkStorageProvider>Dummy</networkStorageProvider>
-    //<networkStorageExternalProtocol>dummy</networkStorageExternalProtocol>
-    //<networkStorageSizeGb>128</networkStorageSizeGb>
-    //<network>
-    //<networkId>1</networkId>
-    //</network>
-    //<providerId>1</providerId>
-    //<qualifierId>5</qualifierId>
-    //</networkStorageCreationInfoMPO>
 
     @Override
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
@@ -141,7 +129,19 @@ public class NetworkVolume implements VolumeSupport {
         xml.append("</networkStorageCreationInfoMPO>");
 
         ZimoryMethod method = new ZimoryMethod(provider);
+        method.postObject("networkStorages", xml.toString());
+        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 10L);
 
+        while( timeout > System.currentTimeMillis() ) {
+            for( Volume v : listVolumes() ) {
+                if( v.getName().equalsIgnoreCase(options.getName()) ) {
+                    return v.getProviderVolumeId();
+                }
+            }
+            try { Thread.sleep(15000L); }
+            catch( InterruptedException ignore ) { }
+        }
+        /*
         Document doc = method.postObject("networkStorages", xml.toString());
 
         if( doc == null ) {
@@ -157,9 +157,9 @@ public class NetworkVolume implements VolumeSupport {
                 return volume.getProviderVolumeId();
             }
         }
+        */
         logger.error("The POST to create a new volume in Zimory succeeded, but nothing was returned");
         throw new CloudException("The POST to create a new volume in Zimory succeeded, but nothing was returned");
-
     }
 
     @Override
@@ -212,8 +212,7 @@ public class NetworkVolume implements VolumeSupport {
             Document response = method.getObject("networkStorages/" + volumeId);
 
             if( response == null ) {
-                logger.error("Unable to identify endpoint for network storage in Zimory");
-                throw new CloudException("Unable to identify endpoint for volumes (network storage)");
+                return null;
             }
             NodeList list = response.getElementsByTagName("networkStorage");
 
@@ -277,8 +276,7 @@ public class NetworkVolume implements VolumeSupport {
         if( products == null ) {
             ArrayList<VolumeProduct> tmp = new ArrayList<VolumeProduct>();
 
-            tmp.add(VolumeProduct.getInstance("Dummy:dummy", "Dummy", "Dummy", VolumeType.HDD));
-            tmp.add(VolumeProduct.getInstance("NETAPP:nfs", "NetApp NFS", "NetApp via NFS", VolumeType.HDD));
+            tmp.add(VolumeProduct.getInstance("NetApp:nfs", "NetApp NFS", "NetApp via NFS", VolumeType.HDD));
             products = Collections.unmodifiableList(tmp);
             cache.put(ctx, products);
         }
@@ -467,7 +465,17 @@ public class NetworkVolume implements VolumeSupport {
         if( volume.getProviderVolumeId() == null ) {
             return null;
         }
-        volume.setProviderProductId(provider + ":" + protocol);
+        String pid = provider + ":" + protocol;
+        for( VolumeProduct p : listVolumeProducts() ) {
+            if( p.getProviderProductId().equalsIgnoreCase(pid) ) {
+                volume.setProviderProductId(p.getProviderProductId());
+                pid = null;
+                break;
+            }
+        }
+        if( pid != null ) {
+            volume.setProviderProductId(pid);
+        }
         if( volume.getName() == null ) {
             volume.setName(volume.getProviderVolumeId());
         }
