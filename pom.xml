@@ -41,7 +41,7 @@
     <dependency>
         <groupId>org.dasein</groupId>
         <artifactId>dasein-cloud-core</artifactId>
-        <version>2013.01-SNAPSHOT</version>
+        <version>2013.01</version>
         <scope>compile</scope>
         <optional>false</optional>
     </dependency>   
@@ -69,7 +69,7 @@
       <dependency>
           <groupId>org.dasein</groupId>
           <artifactId>dasein-cloud-test</artifactId>
-          <version>2013.01-SNAPSHOT</version>
+          <version>2013.01</version>
           <scope>test</scope>
           <optional>false</optional>
       </dependency>
@@ -227,7 +227,7 @@
                 </property>
             </systemProperties> 
           <includes>
-            <include>**/ZimoryTestSuite.java</include>
+            <!-- <include>**/ZimoryTestSuite.java</include> -->
           </includes>
         </configuration>
       </plugin> 
