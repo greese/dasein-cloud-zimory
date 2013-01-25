@@ -266,12 +266,22 @@ public class Deployments implements VirtualMachineSupport {
     }
 
     @Override
+    public @Nonnull Requirement identifyPasswordRequirement(Platform platform) throws CloudException, InternalException {
+        return Requirement.NONE;
+    }
+
+    @Override
     public @Nonnull Requirement identifyRootVolumeRequirement() throws CloudException, InternalException {
         return Requirement.NONE;
     }
 
     @Override
     public @Nonnull Requirement identifyShellKeyRequirement() throws CloudException, InternalException {
+        return Requirement.NONE;
+    }
+
+    @Override
+    public @Nonnull Requirement identifyShellKeyRequirement(Platform platform) throws CloudException, InternalException {
         return Requirement.NONE;
     }
 
