@@ -144,10 +144,14 @@ public class Appliances implements MachineImageSupport {
         return "appliance";
     }
 
-    @Nonnull
     @Override
-    public String getProviderTermForImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
+    public @Nonnull String getProviderTermForImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
         return "appliance";
+    }
+
+    @Override
+    public @Nonnull String getProviderTermForCustomImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
+        return getProviderTermForImage(locale, cls);
     }
 
     @Override
@@ -318,7 +322,12 @@ public class Appliances implements MachineImageSupport {
 
     @Override
     public void remove(@Nonnull String providerImageId) throws CloudException, InternalException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        throw new OperationNotSupportedException("Not currently supported");
+    }
+
+    @Override
+    public void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException {
+        throw new OperationNotSupportedException("Not currently supported");
     }
 
     @Override
