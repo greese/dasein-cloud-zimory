@@ -66,7 +66,10 @@ public class Networks extends AbstractVLANSupport {
 
     private Zimory provider;
 
-    public Networks(@Nonnull Zimory provider) { this.provider = provider; }
+    public Networks(@Nonnull Zimory provider) {
+        super(provider);
+        this.provider = provider;
+    }
 
     @Override
     public void addRouteToAddress(@Nonnull String toRoutingTableId, @Nonnull IPVersion version, @Nullable String destinationCidr, @Nonnull String address) throws CloudException, InternalException {

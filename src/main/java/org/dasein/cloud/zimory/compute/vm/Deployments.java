@@ -32,6 +32,7 @@ import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineProduct;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.cloud.network.RawAddress;
 import org.dasein.cloud.util.APITrace;
 import org.dasein.cloud.util.Cache;
 import org.dasein.cloud.util.CacheLevel;
@@ -742,10 +743,10 @@ public class Deployments extends AbstractVMSupport {
         vm.setCreationTimestamp(creationDate);
         vm.setProductId(performance + ":" + cpu + ":" + memory);
         if( publicIp != null ) {
-            vm.setPublicIpAddresses(new String[] { publicIp });
+            vm.setPublicAddresses(new RawAddress(publicIp));
         }
         if( privateIp != null ) {
-            vm.setPrivateIpAddresses(new String[] { privateIp });
+            vm.setPrivateAddresses(new RawAddress(privateIp));
         }
 
         return vm;
