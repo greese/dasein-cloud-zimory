@@ -19,26 +19,19 @@ package org.dasein.cloud.zimory.compute.vm;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
-import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.Tag;
+import org.dasein.cloud.compute.AbstractVMSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VMLaunchOptions;
-import org.dasein.cloud.compute.VMScalingCapabilities;
-import org.dasein.cloud.compute.VMScalingOptions;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineProduct;
-import org.dasein.cloud.compute.VirtualMachineSupport;
 import org.dasein.cloud.compute.VmState;
-import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.identity.ServiceAction;
-import org.dasein.cloud.network.Subnet;
-import org.dasein.cloud.network.VLANSupport;
 import org.dasein.cloud.util.APITrace;
 import org.dasein.cloud.util.Cache;
 import org.dasein.cloud.util.CacheLevel;
@@ -54,12 +47,10 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,46 +62,14 @@ import java.util.Map;
  * @version 2012.09 initial version
  * @since 2012.09
  */
-public class Deployments implements VirtualMachineSupport {
+public class Deployments extends AbstractVMSupport {
     static private final Logger logger = Zimory.getLogger(Deployments.class);
 
     private Zimory provider;
 
-    public Deployments(@Nonnull Zimory provider) { this.provider = provider; }
-
-    @Override
-    public VirtualMachine alterVirtualMachine(@Nonnull String vmId, @Nonnull VMScalingOptions options) throws InternalException, CloudException {
-        throw new OperationNotSupportedException("Vertical scaling is not currently implemented");
-    }
-
-    @Override
-    public @Nonnull VirtualMachine clone(@Nonnull String vmId, @Nonnull String intoDcId, @Nonnull String name, @Nonnull String description, boolean powerOn, @Nullable String... firewallIds) throws InternalException, CloudException {
-        throw new OperationNotSupportedException("Cloning is not currently implemented");
-    }
-
-    @Override
-    public VMScalingCapabilities describeVerticalScalingCapabilities() throws CloudException, InternalException {
-        return null;
-    }
-
-    @Override
-    public void disableAnalytics(String vmId) throws InternalException, CloudException {
-        // NO-OP
-    }
-
-    @Override
-    public void enableAnalytics(String vmId) throws InternalException, CloudException {
-        // NO-OP
-    }
-
-    @Override
-    public @Nonnull String getConsoleOutput(@Nonnull String vmId) throws InternalException, CloudException {
-        return "";
-    }
-
-    @Override
-    public int getCostFactor(@Nonnull VmState vmState) throws InternalException, CloudException {
-        return 100;
+    public Deployments(@Nonnull Zimory provider) {
+        super(provider);
+        this.provider = provider;
     }
 
     static public class MI {
@@ -166,11 +125,6 @@ public class Deployments implements VirtualMachineSupport {
             }
         }
         return mi;
-    }
-
-    @Override
-    public int getMaximumVirtualMachineCount() throws CloudException, InternalException {
-        return -2;
     }
 
     @Override
@@ -246,23 +200,8 @@ public class Deployments implements VirtualMachineSupport {
     }
 
     @Override
-    public VmStatistics getVMStatistics(String vmId, long from, long to) throws InternalException, CloudException {
-        return null;
-    }
-
-    @Override
-    public @Nonnull Iterable<VmStatistics> getVMStatisticsForPeriod(@Nonnull String vmId, @Nonnegative long from, @Nonnegative long to) throws InternalException, CloudException {
-        return Collections.emptyList();
-    }
-
-    @Override
     public @Nonnull Requirement identifyImageRequirement(@Nonnull ImageClass cls) throws CloudException, InternalException {
         return (ImageClass.MACHINE.equals(cls) ? Requirement.REQUIRED : Requirement.NONE);
-    }
-
-    @Override
-    public @Nonnull Requirement identifyPasswordRequirement() throws CloudException, InternalException {
-        return Requirement.NONE;
     }
 
     @Override
@@ -272,11 +211,6 @@ public class Deployments implements VirtualMachineSupport {
 
     @Override
     public @Nonnull Requirement identifyRootVolumeRequirement() throws CloudException, InternalException {
-        return Requirement.NONE;
-    }
-
-    @Override
-    public @Nonnull Requirement identifyShellKeyRequirement() throws CloudException, InternalException {
         return Requirement.NONE;
     }
 
@@ -438,48 +372,6 @@ public class Deployments implements VirtualMachineSupport {
     }
 
     @Override
-    public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String... firewallIds) throws InternalException, CloudException {
-        return launch(fromMachineImageId, product, dataCenterId, name, description, withKeypairId, inVlanId, withAnalytics, asSandbox, firewallIds, new Tag[0]);
-    }
-
-    @Override
-    public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String[] firewallIds, @Nullable Tag... tags) throws InternalException, CloudException {
-        VMLaunchOptions cfg = VMLaunchOptions.getInstance(product.getProviderProductId(), fromMachineImageId, name, description);
-
-        if( withKeypairId != null ) {
-            cfg.withBoostrapKey(withKeypairId);
-        }
-        if( inVlanId != null ) {
-            VLANSupport support = provider.getNetworkServices().getVlanSupport();
-            Subnet subnet = support.getSubnet(inVlanId);
-
-            if( subnet == null ) {
-                throw new CloudException("No such VPC subnet: " + inVlanId);
-            }
-            dataCenterId = subnet.getProviderDataCenterId();
-            cfg.inVlan(null, dataCenterId, inVlanId);
-        }
-        else {
-            cfg.inDataCenter(dataCenterId);
-        }
-        if( withAnalytics ) {
-            cfg.withExtendedAnalytics();
-        }
-        if( firewallIds != null && firewallIds.length > 0 ) {
-            cfg.behindFirewalls(firewallIds);
-        }
-        if( tags != null && tags.length > 0 ) {
-            HashMap<String,Object> meta = new HashMap<String, Object>();
-
-            for( Tag t : tags ) {
-                meta.put(t.getKey(), t.getValue());
-            }
-            cfg.withMetaData(meta);
-        }
-        return launch(cfg);
-    }
-
-    @Override
     public @Nonnull Iterable<String> listFirewalls(@Nonnull String vmId) throws InternalException, CloudException {
         return Collections.emptyList();
     }
@@ -594,22 +486,6 @@ public class Deployments implements VirtualMachineSupport {
     }
 
     @Override
-    public void pause(@Nonnull String vmId) throws InternalException, CloudException {
-        throw new OperationNotSupportedException("Pause/unpause is not supported");
-    }
-
-    @Override
-    public void reboot(@Nonnull String vmId) throws CloudException, InternalException {
-        stop(vmId);
-        start(vmId);
-    }
-
-    @Override
-    public void resume(@Nonnull String vmId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Suspend/resume is not supported");
-    }
-
-    @Override
     public void start(@Nonnull String vmId) throws InternalException, CloudException {
         APITrace.begin(provider, "startVm");
         try {
@@ -623,11 +499,6 @@ public class Deployments implements VirtualMachineSupport {
     }
 
     @Override
-    public void stop(@Nonnull String vmId) throws InternalException, CloudException {
-        stop(vmId, false);
-    }
-
-    @Override
     public void stop(@Nonnull String vmId, boolean force) throws InternalException, CloudException {
         APITrace.begin(provider, "stopVm");
         try {
@@ -638,11 +509,6 @@ public class Deployments implements VirtualMachineSupport {
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public boolean supportsAnalytics() throws CloudException, InternalException {
-        return false;
     }
 
     @Override
@@ -661,11 +527,6 @@ public class Deployments implements VirtualMachineSupport {
     }
 
     @Override
-    public void suspend(@Nonnull String vmId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Suspend/resume is not supported");
-    }
-
-    @Override
     public void terminate(@Nonnull String vmId) throws InternalException, CloudException {
         APITrace.begin(provider, "terminateVm");
         try {
@@ -676,11 +537,6 @@ public class Deployments implements VirtualMachineSupport {
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public void unpause(@Nonnull String vmId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Pause/unpause is not supported");
     }
 
     @Override
@@ -893,25 +749,5 @@ public class Deployments implements VirtualMachineSupport {
         }
 
         return vm;
-    }
-
-    @Override
-    public void updateTags(@Nonnull String vmId, @Nonnull Tag... tags) throws CloudException, InternalException {
-        // NO-OP
-    }
-
-    @Override
-    public void updateTags(@Nonnull String[] vmIds, @Nonnull Tag... tags) throws CloudException, InternalException {
-        // NO-OP
-    }
-
-    @Override
-    public void removeTags(@Nonnull String vmId, @Nonnull Tag... tags) throws CloudException, InternalException {
-        // NO-OP
-    }
-
-    @Override
-    public void removeTags(@Nonnull String[] vmIds, @Nonnull Tag... tags) throws CloudException, InternalException {
-        // NO-OP
     }
 }

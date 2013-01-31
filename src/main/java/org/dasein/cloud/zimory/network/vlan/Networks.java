@@ -25,6 +25,7 @@ import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.cloud.network.AbstractVLANSupport;
 import org.dasein.cloud.network.Firewall;
 import org.dasein.cloud.network.FirewallSupport;
 import org.dasein.cloud.network.IPVersion;
@@ -35,9 +36,9 @@ import org.dasein.cloud.network.NetworkServices;
 import org.dasein.cloud.network.Networkable;
 import org.dasein.cloud.network.RoutingTable;
 import org.dasein.cloud.network.Subnet;
+import org.dasein.cloud.network.SubnetCreateOptions;
 import org.dasein.cloud.network.VLAN;
 import org.dasein.cloud.network.VLANState;
-import org.dasein.cloud.network.VLANSupport;
 import org.dasein.cloud.util.APITrace;
 import org.dasein.cloud.zimory.NoContextException;
 import org.dasein.cloud.zimory.Zimory;
@@ -60,7 +61,7 @@ import java.util.Locale;
  * @version 2013.01 initial version
  * @since 2013.01
  */
-public class Networks implements VLANSupport {
+public class Networks extends AbstractVLANSupport {
     static private final Logger logger = Zimory.getLogger(Networks.class);
 
     private Zimory provider;
@@ -133,7 +134,7 @@ public class Networks implements VLANSupport {
     }
 
     @Override
-    public @Nonnull Subnet createSubnet(@Nonnull String cidr, @Nonnull String inProviderVlanId, @Nonnull String name, @Nonnull String description) throws CloudException, InternalException {
+    public @Nonnull Subnet createSubnet(@Nonnull SubnetCreateOptions options) throws CloudException, InternalException {
         throw new OperationNotSupportedException("Subnets are not supported");
     }
 
