@@ -44,7 +44,6 @@ import org.w3c.dom.NodeList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 
@@ -183,12 +182,6 @@ public class Appliances extends AbstractImageSupport {
             if( ctx == null ) {
                 throw new NoContextException();
             }
-            ImageClass cls = (options == null ? null : options.getImageClass());
-            String ownedBy = (options == null ? null : options.getAccountNumber());
-
-            if( cls != null && !ImageClass.MACHINE.equals(cls) ) {
-                return Collections.emptyList();
-            }
 
             ZimoryMethod method = new ZimoryMethod(provider);
 
@@ -203,7 +196,7 @@ public class Appliances extends AbstractImageSupport {
 
             for( int i=0; i<appliances.getLength(); i++ ) {
                 MachineImage img = toMachineImage(appliances.item(i));
-                if( img != null && (ownedBy == null || ownedBy.equals(img.getProviderOwnerId())) ) {
+                if( img != null && (options == null || options.matches(img)) ) {
                     images.add(img);
                 }
             }
@@ -249,61 +242,10 @@ public class Appliances extends AbstractImageSupport {
         return new String[0];
     }
 
-
     @Override
-    public @Nonnull Iterable<MachineImage> searchImages(@Nullable String accountNumber, @Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
-        APITrace.begin(provider, "searchImages");
-        try {
-            ArrayList<MachineImage> images = new ArrayList<MachineImage>();
-
-            if( accountNumber == null ) {
-                ZimoryMethod method = new ZimoryMethod(provider);
-                Document response = method.getObject("appliances");
-
-                if( response == null ) {
-                    logger.error("Unable to identify endpoint for deployments in Zimory");
-                    throw new CloudException("Unable to identify endpoint for virtual machines (deployments)");
-                }
-                NodeList appliances = response.getElementsByTagName("appliance");
-
-                for( int i=0; i<appliances.getLength(); i++ ) {
-                    MachineImage img = toMachineImage(appliances.item(i));
-                    if( img != null && img.getProviderOwnerId() != null && matches(img, keyword, platform, architecture) ) {
-                        images.add(img);
-                    }
-                }
-            }
-            else {
-                for( MachineImage img : listImages(ImageClass.MACHINE, accountNumber) ) {
-                    if( matches(img, keyword, platform, architecture) ) {
-                        images.add(img);
-                    }
-                }
-            }
-            return images;
-        }
-        finally {
-            APITrace.end();
-        }
-    }
-
-    @Override
-    public @Nonnull Iterable<MachineImage> searchPublicImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
+    public @Nonnull Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions options) throws CloudException, InternalException {
         APITrace.begin(provider, "searchPublicImages");
         try {
-            System.out.println("PIS: " + keyword + "/" + platform + "/" + architecture + "/" + Arrays.toString(imageClasses));
-            if( imageClasses != null && imageClasses.length > 0 ) {
-                boolean ok = false;
-
-                for( ImageClass cls : imageClasses ) {
-                    if( cls.equals(ImageClass.MACHINE) ) {
-                        ok = true;
-                    }
-                }
-                if( !ok ) {
-                    return Collections.emptyList();
-                }
-            }
             ArrayList<MachineImage> images = new ArrayList<MachineImage>();
             ZimoryMethod method = new ZimoryMethod(provider);
             Document response = method.getObject("appliances");
@@ -317,7 +259,7 @@ public class Appliances extends AbstractImageSupport {
             System.out.println("Possibles=" + appliances.getLength());
             for( int i=0; i<appliances.getLength(); i++ ) {
                 MachineImage img = toMachineImage(appliances.item(i));
-                if( img != null && img.getProviderOwnerId() == null && matches(img, keyword, platform, architecture) ) {
+                if( img != null && img.getProviderOwnerId() == null && options.matches(img) ) {
                     images.add(img);
                 }
             }
