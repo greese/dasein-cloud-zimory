@@ -3,7 +3,7 @@
   
   <groupId>org.dasein</groupId>
   <artifactId>dasein-cloud-zimory</artifactId>
-  <version>2013.11-SNAPSHOT</version>
+  <version>2013.07</version>
   
   <name>Dasein Cloud Zimory</name>
   <description>Dasein Cloud implementation for Zimory</description>
@@ -226,9 +226,9 @@
                     <value>${vm.maxChangePeriod}</value>
                 </property>
             </systemProperties> 
-          <excludes>
-            <exclude>**/ZimoryTestSuite.java</exclude>
-          </excludes>
+          <includes>
+            <include>**/ZimoryTestSuite.java</include>
+          </includes>
         </configuration>
       </plugin> 
       <plugin>
