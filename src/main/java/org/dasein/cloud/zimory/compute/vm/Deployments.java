@@ -541,6 +541,11 @@ public class Deployments extends AbstractVMSupport {
     }
 
     @Override
+    public void terminate(@Nonnull String vmId, String explanation)throws InternalException, CloudException{
+        terminate(vmId);
+    }
+
+    @Override
     public @Nonnull String[] mapServiceAction(@Nonnull ServiceAction action) {
         return new String[0];
     }
