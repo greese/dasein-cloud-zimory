@@ -1,19 +1,21 @@
 /**
- * ========= CONFIDENTIAL =========
- *
- * Copyright (C) 2012 enStratus Networks Inc - ALL RIGHTS RESERVED
+ * Copyright (C) 2012 enStratus Networks Inc
  *
  * ====================================================================
- *  NOTICE: All information contained herein is, and remains the
- *  property of enStratus Networks Inc. The intellectual and technical
- *  concepts contained herein are proprietary to enStratus Networks Inc
- *  and may be covered by U.S. and Foreign Patents, patents in process,
- *  and are protected by trade secret or copyright law. Dissemination
- *  of this information or reproduction of this material is strictly
- *  forbidden unless prior written permission is obtained from
- *  enStratus Networks Inc.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * ====================================================================
  */
+
 package org.dasein.cloud.zimory.compute.storage;
 
 import org.apache.log4j.Logger;
@@ -23,6 +25,7 @@ import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.compute.AbstractVolumeSupport;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.Volume;
 import org.dasein.cloud.compute.VolumeCreateOptions;
@@ -62,26 +65,19 @@ import java.util.Locale;
  * @version 2013.01 initial version
  * @since 2013.01
  */
-public class NetworkVolume implements VolumeSupport {
+public class NetworkVolume extends AbstractVolumeSupport {
     static private final Logger logger = Zimory.getLogger(NetworkVolume.class);
 
     private Zimory provider;
 
-    public NetworkVolume(@Nonnull Zimory provider) { this.provider = provider; }
+    public NetworkVolume(@Nonnull Zimory provider) {
+        super(provider);
+        this.provider = provider;
+    }
 
     @Override
     public void attach(@Nonnull String volumeId, @Nonnull String toServer, @Nonnull String deviceId) throws InternalException, CloudException {
         throw new OperationNotSupportedException("Dynamic attachment of network volumes is not supported");
-    }
-
-    @Override
-    public @Nonnull String create(@Nullable String fromSnapshot, @Nonnegative int sizeInGb, @Nonnull String inZone) throws InternalException, CloudException {
-        if( fromSnapshot != null ) {
-            return createVolume(VolumeCreateOptions.getInstanceForSnapshot(fromSnapshot, new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), "dsn-auto-volume", "dsn-auto-volume").inDataCenter(inZone));
-        }
-        else {
-            return createVolume(VolumeCreateOptions.getInstance(new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE), "dsn-auto-volume", "dsn-auto-volume").inDataCenter(inZone));
-        }
     }
 
     @Override
@@ -160,11 +156,6 @@ public class NetworkVolume implements VolumeSupport {
         */
         logger.error("The POST to create a new volume in Zimory succeeded, but nothing was returned");
         throw new CloudException("The POST to create a new volume in Zimory succeeded, but nothing was returned");
-    }
-
-    @Override
-    public void detach(@Nonnull String volumeId) throws InternalException, CloudException {
-        throw new OperationNotSupportedException("Dynamic attachment of network volumes is not supported");
     }
 
     @Override

@@ -1,37 +1,37 @@
 /**
- * ========= CONFIDENTIAL =========
- *
- * Copyright (C) 2012 enStratus Networks Inc - ALL RIGHTS RESERVED
+ * Copyright (C) 2012 enStratus Networks Inc
  *
  * ====================================================================
- *  NOTICE: All information contained herein is, and remains the
- *  property of enStratus Networks Inc. The intellectual and technical
- *  concepts contained herein are proprietary to enStratus Networks Inc
- *  and may be covered by U.S. and Foreign Patents, patents in process,
- *  and are protected by trade secret or copyright law. Dissemination
- *  of this information or reproduction of this material is strictly
- *  forbidden unless prior written permission is obtained from
- *  enStratus Networks Inc.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * ====================================================================
  */
+
 package org.dasein.cloud.zimory.compute.image;
 
 import org.apache.log4j.Logger;
-import org.dasein.cloud.AsynchronousTask;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
-import org.dasein.cloud.Tag;
+import org.dasein.cloud.compute.AbstractImageSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.ImageClass;
-import org.dasein.cloud.compute.ImageCreateOptions;
+import org.dasein.cloud.compute.ImageFilterOptions;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.MachineImageFormat;
 import org.dasein.cloud.compute.MachineImageState;
-import org.dasein.cloud.compute.MachineImageSupport;
 import org.dasein.cloud.compute.MachineImageType;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.identity.ServiceAction;
@@ -46,7 +46,6 @@ import org.w3c.dom.NodeList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 
@@ -57,41 +56,14 @@ import java.util.Locale;
  * @version 2013.01 initial version
  * @since 2013.01
  */
-public class Appliances implements MachineImageSupport {
+public class Appliances extends AbstractImageSupport {
     static private final Logger logger = Zimory.getLogger(Appliances.class);
 
     private Zimory provider;
 
-    public Appliances(@Nonnull Zimory provider) { this.provider = provider; }
-
-    @Override
-    public void addImageShare(@Nonnull String providerImageId, @Nonnull String accountNumber) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Sharing is not currently supported");
-    }
-
-    @Override
-    public void addPublicShare(@Nonnull String providerImageId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Public sharing is not currently supported");
-    }
-
-    @Override
-    public @Nonnull String bundleVirtualMachine(@Nonnull String virtualMachineId, @Nonnull MachineImageFormat format, @Nonnull String bucket, @Nonnull String name) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Operation not supported");
-    }
-
-    @Override
-    public void bundleVirtualMachineAsync(@Nonnull String virtualMachineId, @Nonnull MachineImageFormat format, @Nonnull String bucket, @Nonnull String name, @Nonnull AsynchronousTask<String> trackingTask) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Operation not supported");
-    }
-
-    @Override
-    public @Nonnull MachineImage captureImage(@Nonnull ImageCreateOptions options) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Operation not supported");
-    }
-
-    @Override
-    public void captureImageAsync(@Nonnull ImageCreateOptions options, @Nonnull AsynchronousTask<MachineImage> taskTracker) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Operation not supported");
+    public Appliances(@Nonnull Zimory provider) {
+        super(provider);
+        this.provider = provider;
     }
 
     @Override
@@ -134,24 +106,8 @@ public class Appliances implements MachineImageSupport {
     }
 
     @Override
-    public MachineImage getMachineImage(@Nonnull String providerImageId) throws CloudException, InternalException {
-        return getImage(providerImageId);
-    }
-
-    @Override
-    @Deprecated
-    public @Nonnull String getProviderTermForImage(@Nonnull Locale locale) {
-        return "appliance";
-    }
-
-    @Override
     public @Nonnull String getProviderTermForImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
         return "appliance";
-    }
-
-    @Override
-    public @Nonnull String getProviderTermForCustomImage(@Nonnull Locale locale, @Nonnull ImageClass cls) {
-        return getProviderTermForImage(locale, cls);
     }
 
     @Override
@@ -162,11 +118,6 @@ public class Appliances implements MachineImageSupport {
     @Override
     public @Nonnull Requirement identifyLocalBundlingRequirement() throws CloudException, InternalException {
         return Requirement.NONE;
-    }
-
-    @Override
-    public @Nonnull AsynchronousTask<String> imageVirtualMachine(String vmId, String name, String description) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Operation not supported");
     }
 
     @Override
@@ -225,27 +176,15 @@ public class Appliances implements MachineImageSupport {
     }
 
     @Override
-    public @Nonnull Iterable<MachineImage> listImages(@Nonnull ImageClass cls) throws CloudException, InternalException {
-        ProviderContext ctx = provider.getContext();
-
-        if( ctx == null ) {
-            throw new NoContextException();
-        }
-        return listImages(cls, ctx.getAccountNumber());
-    }
-
-    @Override
-    public @Nonnull Iterable<MachineImage> listImages(@Nonnull ImageClass cls, @Nonnull String ownedBy) throws CloudException, InternalException {
+    public @Nonnull Iterable<MachineImage> listImages(@Nullable ImageFilterOptions options) throws CloudException, InternalException {
         APITrace.begin(provider, "listImages");
-        if( !ImageClass.MACHINE.equals(cls) ) {
-            return Collections.emptyList();
-        }
         try {
             ProviderContext ctx = provider.getContext();
 
             if( ctx == null ) {
                 throw new NoContextException();
             }
+
             ZimoryMethod method = new ZimoryMethod(provider);
 
             Document response = method.getObject("appliances");
@@ -259,7 +198,7 @@ public class Appliances implements MachineImageSupport {
 
             for( int i=0; i<appliances.getLength(); i++ ) {
                 MachineImage img = toMachineImage(appliances.item(i));
-                if( img != null && ownedBy.equals(img.getProviderOwnerId()) ) {
+                if( img != null && (options == null || options.matches(img)) ) {
                     images.add(img);
                 }
             }
@@ -281,21 +220,6 @@ public class Appliances implements MachineImageSupport {
     }
 
     @Override
-    public @Nonnull Iterable<MachineImage> listMachineImages() throws CloudException, InternalException {
-        return listImages(ImageClass.MACHINE);
-    }
-
-    @Override
-    public @Nonnull Iterable<MachineImage> listMachineImagesOwnedBy(@Nullable String accountId) throws CloudException, InternalException {
-        if( accountId == null ) {
-            return searchPublicImages(null, null, null, ImageClass.MACHINE);
-        }
-        else {
-            return listImages(ImageClass.MACHINE, accountId);
-        }
-    }
-
-    @Override
     public @Nonnull Iterable<String> listShares(@Nonnull String providerImageId) throws CloudException, InternalException {
         return Collections.emptyList();
     }
@@ -311,155 +235,19 @@ public class Appliances implements MachineImageSupport {
     }
 
     @Override
+    public void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException {
+        throw new OperationNotSupportedException("Cannot remove this image");
+    }
+
+    @Override
     public @Nonnull String[] mapServiceAction(@Nonnull ServiceAction action) {
         return new String[0];
     }
 
     @Override
-    public @Nonnull MachineImage registerImageBundle(@Nonnull ImageCreateOptions options) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Registering image bundles is not supported");
-    }
-
-    @Override
-    public void remove(@Nonnull String providerImageId) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Not currently supported");
-    }
-
-    @Override
-    public void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Not currently supported");
-    }
-
-    @Override
-    public void removeAllImageShares(@Nonnull String providerImageId) throws CloudException, InternalException {
-        // NO-OP
-    }
-
-    @Override
-    public void removeImageShare(@Nonnull String providerImageId, @Nonnull String accountNumber) throws CloudException, InternalException {
-        // NO-OP
-    }
-
-    @Override
-    public void removePublicShare(@Nonnull String providerImageId) throws CloudException, InternalException {
-        // NO-OP
-    }
-
-    @Override
-    @Deprecated
-    public @Nonnull Iterable<MachineImage> searchMachineImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture) throws CloudException, InternalException {
-        APITrace.begin(provider, "searchMachineImages");
-        try {
-            ArrayList<MachineImage> images = new ArrayList<MachineImage>();
-
-            for( MachineImage img : searchImages(null, keyword, platform, architecture, ImageClass.MACHINE) ) {
-                images.add(img);
-            }
-            for( MachineImage img : searchPublicImages(keyword, platform, architecture, ImageClass.MACHINE) ) {
-                images.add(img);
-            }
-            return images;
-        }
-        finally {
-            APITrace.end();
-        }
-    }
-
-    private boolean matches(@Nonnull MachineImage image, @Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture) {
-        if( architecture != null && !architecture.equals(image.getArchitecture()) ) {
-            return false;
-        }
-        if( platform != null && !platform.equals(Platform.UNKNOWN) ) {
-            Platform mine = image.getPlatform();
-
-            if( platform.isWindows() && !mine.isWindows() ) {
-                return false;
-            }
-            if( platform.isUnix() && !mine.isUnix() ) {
-                return false;
-            }
-            if( platform.isBsd() && !mine.isBsd() ) {
-                return false;
-            }
-            if( platform.isLinux() && !mine.isLinux() ) {
-                return false;
-            }
-            if( platform.equals(Platform.UNIX) ) {
-                if( !mine.isUnix() ) {
-                    return false;
-                }
-            }
-            else if( !platform.equals(mine) ) {
-                return false;
-            }
-        }
-        if( keyword != null ) {
-            keyword = keyword.toLowerCase();
-            if( !image.getDescription().toLowerCase().contains(keyword) ) {
-                if( !image.getName().toLowerCase().contains(keyword) ) {
-                    if( !image.getProviderMachineImageId().toLowerCase().contains(keyword) ) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public @Nonnull Iterable<MachineImage> searchImages(@Nullable String accountNumber, @Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
-        APITrace.begin(provider, "searchImages");
-        try {
-            ArrayList<MachineImage> images = new ArrayList<MachineImage>();
-
-            if( accountNumber == null ) {
-                ZimoryMethod method = new ZimoryMethod(provider);
-                Document response = method.getObject("appliances");
-
-                if( response == null ) {
-                    logger.error("Unable to identify endpoint for deployments in Zimory");
-                    throw new CloudException("Unable to identify endpoint for virtual machines (deployments)");
-                }
-                NodeList appliances = response.getElementsByTagName("appliance");
-
-                for( int i=0; i<appliances.getLength(); i++ ) {
-                    MachineImage img = toMachineImage(appliances.item(i));
-                    if( img != null && img.getProviderOwnerId() != null && matches(img, keyword, platform, architecture) ) {
-                        images.add(img);
-                    }
-                }
-            }
-            else {
-                for( MachineImage img : listImages(ImageClass.MACHINE, accountNumber) ) {
-                    if( matches(img, keyword, platform, architecture) ) {
-                        images.add(img);
-                    }
-                }
-            }
-            return images;
-        }
-        finally {
-            APITrace.end();
-        }
-    }
-
-    @Override
-    public @Nonnull Iterable<MachineImage> searchPublicImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture, @Nullable ImageClass... imageClasses) throws CloudException, InternalException {
+    public @Nonnull Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions options) throws CloudException, InternalException {
         APITrace.begin(provider, "searchPublicImages");
         try {
-            System.out.println("PIS: " + keyword + "/" + platform + "/" + architecture + "/" + Arrays.toString(imageClasses));
-            if( imageClasses != null && imageClasses.length > 0 ) {
-                boolean ok = false;
-
-                for( ImageClass cls : imageClasses ) {
-                    if( cls.equals(ImageClass.MACHINE) ) {
-                        ok = true;
-                    }
-                }
-                if( !ok ) {
-                    return Collections.emptyList();
-                }
-            }
             ArrayList<MachineImage> images = new ArrayList<MachineImage>();
             ZimoryMethod method = new ZimoryMethod(provider);
             Document response = method.getObject("appliances");
@@ -473,7 +261,7 @@ public class Appliances implements MachineImageSupport {
             System.out.println("Possibles=" + appliances.getLength());
             for( int i=0; i<appliances.getLength(); i++ ) {
                 MachineImage img = toMachineImage(appliances.item(i));
-                if( img != null && img.getProviderOwnerId() == null && matches(img, keyword, platform, architecture) ) {
+                if( img != null && img.getProviderOwnerId() == null && options.matches(img) ) {
                     images.add(img);
                 }
             }
@@ -482,11 +270,6 @@ public class Appliances implements MachineImageSupport {
         finally {
             APITrace.end();
         }
-    }
-
-    @Override
-    public void shareMachineImage(@Nonnull String providerImageId, @Nullable String withAccountId, boolean allow) throws CloudException, InternalException {
-        throw new OperationNotSupportedException("Sharing machine images is not supported");
     }
 
     @Override
@@ -671,10 +454,5 @@ public class Appliances implements MachineImageSupport {
             }
         }
         return null;
-    }
-
-    @Override
-    public void updateTags(@Nonnull String imageId, @Nonnull Tag... tags) throws CloudException, InternalException {
-        // NO-OP
     }
 }
