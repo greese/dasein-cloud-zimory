@@ -105,6 +105,7 @@ public class ZimoryMethod {
                 wire.debug("");
                 wire.debug(">>> [POST (" + (new Date()) + ")] -> " + target + " >--------------------------------------------------------------------------------------");
             }
+            HttpClient client = null;
             try {
                 URI uri;
 
@@ -114,7 +115,7 @@ public class ZimoryMethod {
                 catch( URISyntaxException e ) {
                     throw new ZimoryConfigurationException(e);
                 }
-                HttpClient client = getClient(uri);
+                client = getClient(uri);
 
                 try {
                     ProviderContext ctx = provider.getContext();
@@ -217,6 +218,9 @@ public class ZimoryMethod {
                     wire.debug("<<< [POST (" + (new Date()) + ")] -> " + target + " <--------------------------------------------------------------------------------------");
                     wire.debug("");
                 }
+                if (client != null) {
+                    client.getConnectionManager().shutdown();
+                }
             }
         }
         finally {
@@ -238,6 +242,7 @@ public class ZimoryMethod {
                 wire.debug("");
                 wire.debug(">>> [DELETE (" + (new Date()) + ")] -> " + target + " >--------------------------------------------------------------------------------------");
             }
+            HttpClient client = null;
             try {
                 URI uri;
 
@@ -247,7 +252,7 @@ public class ZimoryMethod {
                 catch( URISyntaxException e ) {
                     throw new ZimoryConfigurationException(e);
                 }
-                HttpClient client = getClient(uri);
+                client = getClient(uri);
 
                 try {
                     ProviderContext ctx = provider.getContext();
@@ -328,6 +333,9 @@ public class ZimoryMethod {
                     wire.debug("<<< [DELETE (" + (new Date()) + ")] -> " + target + " <--------------------------------------------------------------------------------------");
                     wire.debug("");
                 }
+                if (client != null) {
+                    client.getConnectionManager().shutdown();
+                }
             }
         }
         finally {
@@ -381,6 +389,7 @@ public class ZimoryMethod {
                 wire.debug("");
                 wire.debug(">>> [GET (" + (new Date()) + ")] -> " + target + " >--------------------------------------------------------------------------------------");
             }
+            HttpClient client = null;
             try {
                 URI uri;
 
@@ -390,7 +399,7 @@ public class ZimoryMethod {
                 catch( URISyntaxException e ) {
                     throw new ZimoryConfigurationException(e);
                 }
-                HttpClient client = getClient(uri);
+                client = getClient(uri);
 
                 try {
                     ProviderContext ctx = provider.getContext();
@@ -492,6 +501,9 @@ public class ZimoryMethod {
                 if( wire.isDebugEnabled() ) {
                     wire.debug("<<< [GET (" + (new Date()) + ")] -> " + target + " <--------------------------------------------------------------------------------------");
                     wire.debug("");
+                }
+                if (client != null) {
+                    client.getConnectionManager().shutdown();
                 }
             }
         }
@@ -641,6 +653,7 @@ public class ZimoryMethod {
                 wire.debug("");
                 wire.debug(">>> [POST (" + (new Date()) + ")] -> " + target + " >--------------------------------------------------------------------------------------");
             }
+            HttpClient client = null;
             try {
                 URI uri;
 
@@ -650,7 +663,7 @@ public class ZimoryMethod {
                 catch( URISyntaxException e ) {
                     throw new ZimoryConfigurationException(e);
                 }
-                HttpClient client = getClient(uri);
+                client = getClient(uri);
 
                 try {
                     ProviderContext ctx = provider.getContext();
@@ -757,6 +770,9 @@ public class ZimoryMethod {
                 if( wire.isDebugEnabled() ) {
                     wire.debug("<<< [POST (" + (new Date()) + ")] -> " + target + " <--------------------------------------------------------------------------------------");
                     wire.debug("");
+                }
+                if (client != null) {
+                    client.getConnectionManager().shutdown();
                 }
             }
         }
